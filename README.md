@@ -1,314 +1,134 @@
-### Features
+# MockCustomAPI
 
-- Support Standard Markdown / CommonMark and GFM(GitHub Flavored Markdown);
-- Full-featured: Real-time Preview, Image (cross-domain) upload, Preformatted text/Code blocks/Tables insert, Code fold, Search replace, Read only, Themes, Multi-languages, L18n, HTML entities, Code syntax highlighting...;
-- Markdown Extras : Support ToC (Table of Contents), Emoji, Task lists, @Links...;
-- Compatible with all major browsers (IE8+), compatible Zepto.js and iPad;
-- Support identification, interpretation, fliter of the HTML tags;
-- Support TeX (LaTeX expressions, Based on KaTeX), Flowchart and Sequence Diagram of Markdown extended syntax;
-- Support AMD/CMD (Require.js & Sea.js) Module Loader, and Custom/define editor plugins;
+## Overview
 
-# Editor.md
+mockCustomAPI is a lightweight Node.js package that allows developers to quickly set up a mock API for development, unit testing, or integration testing. It supports all CRUD operations and provides validation middleware for API keys and authorization tokens.
 
-![](https://avatars.githubusercontent.com/u/175778728?v=4&size=64)
+## Features
 
-![](https://img.shields.io/github/stars/pandao/editor.md.svg) ![](https://img.shields.io/github/forks/pandao/editor.md.svg) ![](https://img.shields.io/github/tag/pandao/editor.md.svg) ![](https://img.shields.io/github/release/pandao/editor.md.svg) ![](https://img.shields.io/github/issues/pandao/editor.md.svg) ![](https://img.shields.io/bower/v/editor.md.svg)
+- Supports the fourth basics HTTP methods: `GET`, `POST`, `PUT`, `DELETE`.
+- Ability to define custom routes with mock responses.
+- Middleware support for API key and authorization validation.
+- Built-in CRUD functionality for dynamic resources.
+- CORS support for cross-origin requests.
+- Easy-to-use constructor for quick setup.
+- Built-in request logging for debugging.
+- Custom middleware support for advanced request handling.
 
-**Table of Contents**
+## Installation
 
-[TOCM]
+```sh
+npm install mock-custom-api
+```
 
-[TOC]
+## Usage
 
-#H1 header
-##H2 header
-###H3 header
-####H4 header
-#####H5 header
-######H6 header
-#Heading 1 link [Heading link](https://github.com/pandao/editor.md "Heading link")
-##Heading 2 link [Heading link](https://github.com/pandao/editor.md "Heading link")
-###Heading 3 link [Heading link](https://github.com/pandao/editor.md "Heading link")
-####Heading 4 link [Heading link](https://github.com/pandao/editor.md "Heading link") Heading link [Heading link](https://github.com/pandao/editor.md "Heading link")
-#####Heading 5 link [Heading link](https://github.com/pandao/editor.md "Heading link")
-######Heading 6 link [Heading link](https://github.com/pandao/editor.md "Heading link")
+### Initializing the Mock API Server
 
-##Headers (Underline)
+```typescript
+import MockAPI from "mock-custom-api";
 
-# H1 Header (Underline)
+const mockAPI = new MockAPI("MyMockAPI", 4000, true);
+```
 
-## H2 Header (Underline)
+- The first parameter (`'MyMockAPI'`) is the application name.
+- The second parameter (`4000`) is the port number. if you put undefined, the server will start on a 3000 port.
+- The third parameter (`true`) enables CORS for all origins. You can also pass an array of allowed origins.
 
-###Characters
+### Adding Custom Routes
 
----
+You can define custom API routes with predefined responses.
 
-~~Strikethrough~~ <s>Strikethrough (when enable html tag decode.)</s>
-_Italic_ _Italic_
-**Emphasis** **Emphasis**
-**_Emphasis Italic_** **_Emphasis Italic_**
+```typescript
+mockAPI.addCustomRoute({
+  method: "GET",
+  path: "/test",
+  response: { message: "Test success" },
+});
+```
 
-Superscript: X<sub>2</sub>，Subscript: O<sup>2</sup>
+### Adding CRUD Routes Automatically
 
-**Abbreviation(link HTML abbr tag)**
+```typescript
+mockAPI.addCRUDRoutes("users");
+```
 
-The <abbr title="Hyper Text Markup Language">HTML</abbr> specification is maintained by the <abbr title="World Wide Web Consortium">W3C</abbr>.
+This will generate the following endpoints:
 
-###Blockquotes
+- `POST /users` - Create a new user
+- `GET /users` - Retrieve all users
+- `GET /users/:id` - Retrieve a user by ID
+- `PUT /users/:id` - Update a user by ID
+- `DELETE /users/:id` - Delete a user by ID
 
-> Blockquotes
+### Adding Authentication Middleware
 
-Paragraphs and Line Breaks
+You can secure routes with API key or token-based authentication.
 
-> "Blockquotes Blockquotes", [Link](http://localhost/)。
+```typescript
+mockAPI.addCustomRoute({
+  method: "GET",
+  path: "/protected",
+  response: { message: "Protected route" },
+  validationType: "apiKey",
+  validationValue: "my-secret-key",
+});
+```
 
-###Links
+- `validationType: 'apiKey'` ensures that requests must include `x-api-key: my-secret-key` in the headers.
 
-[Links](http://localhost/)
+### Handling Requests with Custom Middleware
 
-[Links with title](http://localhost/ "link title")
+```typescript
+mockAPI.addCustomRoute({
+  method: "POST",
+  path: "/validate",
+  response: { message: "Validated" },
+  middleware: (req, res, next) => {
+    if (!req.headers["x-custom-header"]) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    next();
+  },
+});
+```
 
-`<link>` : <https://github.com>
+### Enabling Logging for Debugging
 
-[Reference link][id/name]
+By default, the API logs incoming requests and responses.
 
-[id/name]: http://link-url/
+```typescript
+mockAPI.enableLogging(true);
+```
 
-GFM a-tail link @pandao
+### Starting the Mock API Server
 
-###Code Blocks (multi-language) & highlighting
+```typescript
+mockAPI.start();
+```
 
-####Inline code
+This starts the API server on the specified port.
 
-`$ npm install marked`
-
-####Code Blocks (Indented style)
-
-Indented 4 spaces, like `<pre>` (Preformatted Text).
-
-    <?php
-        echo "Hello world!";
-    ?>
-
-Code Blocks (Preformatted text):
-
-    | First Header  | Second Header |
-    | ------------- | ------------- |
-    | Content Cell  | Content Cell  |
-    | Content Cell  | Content Cell  |
-
-####Javascript
+### Example API Calls Using Fetch
 
 ```javascript
-function test() {
-  console.log("Hello world!");
-}
+fetch("http://localhost:4000/test")
+  .then((response) => response.json())
+  .then((data) => console.log(data));
 
-(function () {
-  var box = function () {
-    return box.fn.init();
-  };
-
-  box.prototype = box.fn = {
-    init: function () {
-      console.log("box.init()");
-
-      return this;
-    },
-
-    add: function (str) {
-      alert("add", str);
-
-      return this;
-    },
-
-    remove: function (str) {
-      alert("remove", str);
-
-      return this;
-    },
-  };
-
-  box.fn.init.prototype = box.fn;
-
-  window.box = box;
-})();
-
-var testBox = box();
-testBox.add("jQuery").remove("jQuery");
+fetch("http://localhost:4000/protected", {
+  headers: { "x-api-key": "my-secret-key" },
+})
+  .then((response) => response.json())
+  .then((data) => console.log(data));
 ```
 
-####HTML code
+## Running Tests
 
-```html
-<!DOCTYPE html>
-<html>
-  <head>
-    <mate charest="utf-8" />
-    <title>Hello world!</title>
-  </head>
-  <body>
-    <h1>Hello world!</h1>
-  </body>
-</html>
+```sh
+npm test
 ```
 
-###Images
+## License
 
-Image:
-
-![](https://pandao.github.io/editor.md/examples/images/4.jpg)
-
-> Follow your heart.
-
-![](https://pandao.github.io/editor.md/examples/images/8.jpg)
-
-> 图为：厦门白城沙滩 Xiamen
-
-图片加链接 (Image + Link)：
-
-[![](https://pandao.github.io/editor.md/examples/images/7.jpg)](https://pandao.github.io/editor.md/examples/images/7.jpg "李健首张专辑《似水流年》封面")
-
-> 图为：李健首张专辑《似水流年》封面
-
----
-
-###Lists
-
-####Unordered list (-)
-
-- Item A
-- Item B
-- Item C
-
-####Unordered list (\*)
-
-- Item A
-- Item B
-- Item C
-
-####Unordered list (plus sign and nested)
-
-- Item A
-- Item B
-  - Item B 1
-  - Item B 2
-  - Item B 3
-- Item C
-  - Item C 1
-  - Item C 2
-  - Item C 3
-
-####Ordered list
-
-1. Item A
-2. Item B
-3. Item C
-
----
-
-###Tables
-
-| First Header | Second Header |
-| ------------ | ------------- |
-| Content Cell | Content Cell  |
-| Content Cell | Content Cell  |
-
-| First Header | Second Header |
-| ------------ | ------------- |
-| Content Cell | Content Cell  |
-| Content Cell | Content Cell  |
-
-| Function name | Description                |
-| ------------- | -------------------------- |
-| `help()`      | Display the help window.   |
-| `destroy()`   | **Destroy your computer!** |
-
-| Item     | Value |
-| -------- | ----: |
-| Computer | $1600 |
-| Phone    |   $12 |
-| Pipe     |    $1 |
-
-| Left-Aligned  | Center Aligned  | Right Aligned |
-| :------------ | :-------------: | ------------: |
-| col 3 is      | some wordy text |         $1600 |
-| col 2 is      |    centered     |           $12 |
-| zebra stripes |    are neat     |            $1 |
-
----
-
-####HTML entities
-
-&copy; & &uml; &trade; &iexcl; &pound;
-&amp; &lt; &gt; &yen; &euro; &reg; &plusmn; &para; &sect; &brvbar; &macr; &laquo; &middot;
-
-X&sup2; Y&sup3; &frac34; &frac14; &times; &divide; &raquo;
-
-18&ordm;C &quot; &apos;
-
-##Escaping for Special Characters
-
-\*literal asterisks\*
-
-##Markdown extras
-
-###GFM task list
-
-- [x] GFM task list 1
-- [x] GFM task list 2
-- [ ] GFM task list 3
-  - [ ] GFM task list 3-1
-  - [ ] GFM task list 3-2
-  - [ ] GFM task list 3-3
-- [ ] GFM task list 4
-  - [ ] GFM task list 4-1
-  - [ ] GFM task list 4-2
-
-###Emoji mixed :smiley:
-
-> Blockquotes :star:
-
-####GFM task lists & Emoji & fontAwesome icon emoji & editormd logo emoji :editormd-logo-5x:
-
-- [x] :smiley: @mentions, :smiley: #refs, [links](), **formatting**, and <del>tags</del> supported :editormd-logo:;
-- [x] list syntax required (any unordered or ordered list supported) :editormd-logo-3x:;
-- [x] [ ] :smiley: this is a complete item :smiley:;
-- [ ] []this is an incomplete item [test link](#) :fa-star: @pandao;
-- [ ] [ ]this is an incomplete item :fa-star: :fa-gear:;
-  - [ ] :smiley: this is an incomplete item [test link](#) :fa-star: :fa-gear:;
-  - [ ] :smiley: this is :fa-star: :fa-gear: an incomplete item [test link](#);
-
-###TeX(LaTeX)
-
-$$E=mc^2$$
-
-Inline $$E=mc^2$$ Inline，Inline $$E=mc^2$$ Inline。
-
-$$\(\sqrt{3x-1}+(1+x)^2\)$$
-
-$$\sin(\alpha)^{\theta}=\sum_{i=0}^{n}(x^i + \cos(f))$$
-
-###FlowChart
-
-```flow
-st=>start: Login
-op=>operation: Login operation
-cond=>condition: Successful Yes or No?
-e=>end: To admin
-
-st->op->cond
-cond(yes)->e
-cond(no)->op
-```
-
-###Sequence Diagram
-
-```seq
-Andrew->China: Says Hello
-Note right of China: China thinks\nabout it
-China-->Andrew: How are you?
-Andrew->>China: I am good thanks!
-```
-
-###End
+MIT

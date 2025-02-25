@@ -1,122 +1,160 @@
-import express, { Request, Response, NextFunction } from "express";
-import bodyParser from "body-parser";
+import express, { Application, Request, Response, NextFunction } from "express";
 import cors from "cors";
+import bodyParser from "body-parser";
 
-// Define the type for a custom route
-interface CustomRoute {
-  method: string;
+interface MockRoute {
+  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
   path: string;
-  requestData?: any; // Optional request data (e.g., body or query params)
-  responseData: any; // Response data to send back
-  middlewareType?: "apiKey" | "authorization"; // Optional middleware type
-  middlewareValue?: string; // Optional middleware value (e.g., API key or token)
-}
-
-// Define the type for MockAPI options
-interface MockAPIOptions {
-  appName?: string; // Optional app name
-  port?: number; // Optional port (default: 3000)
-  cors?: string | string[] | boolean; // CORS configuration (true for '*', array for specific URLs, false to disable)
+  body?: any;
+  response: any;
+  status?: number;
+  validationType?: "apiKey" | "authorization" | "none";
+  validationValue?: string;
 }
 
 class MockAPI {
-  readonly app: express.Express;
-  readonly appName: string;
-  readonly port: number;
+  readonly app: Application;
+  readonly port?: number;
+  readonly routes: MockRoute[] = [];
 
-  constructor(options: MockAPIOptions = {}) {
+  constructor(
+    readonly appName: string,
+    port: number = 3000,
+    allowCors: string[] | boolean = true
+  ) {
     this.app = express();
-    this.appName = options.appName ?? "MockAPI"; // Default app name
-    this.port = options.port ?? 3000; // Default port
-
-    // Middleware
-    this.setupCors(options.cors); // Set up CORS based on options
-    this.app.use(bodyParser.json());
-
-    // Default routes
-    this.setupDefaultRoutes();
-
-    // Default route for unmatched paths
-    this.app.all("*", (req, res) => {
-      res.status(404).json({ error: "Route not found" });
-    });
-  }
-
-  /**
-   * Set up CORS based on the provided configuration
-   * @param corsConfig CORS configuration (true for '*', array for specific URLs, false to disable)
-   */
-  private setupCors(corsConfig: string | string[] | boolean | undefined): void {
-    if (corsConfig === true) {
-      // Allow all origins
-      this.app.use(cors());
-    } else if (Array.isArray(corsConfig)) {
-      // Allow specific origins
+    this.port = port;
+    this.app.use(express.json());
+    if (allowCors) {
       this.app.use(
-        cors({
-          origin: corsConfig,
-        })
-      );
-    } else if (typeof corsConfig === "string") {
-      // Allow a single origin
-      this.app.use(
-        cors({
-          origin: corsConfig,
-        })
-      );
-    } else {
-      // Disable CORS
-      console.warn(
-        "CORS is disabled. Requests from other origins may be blocked."
+        cors(typeof allowCors === "boolean" ? {} : { origin: allowCors })
       );
     }
+    this.app.use(bodyParser.json());
+    this.setupDefaultRoutes();
+    // this.app.all("*", (req: Request, res: Response) => {
+    //   res.status(404).json({ error: "Route not found" });
+    // });
   }
 
-  /**
-   * Set up default routes for the mock API
-   */
-  private setupDefaultRoutes(): void {
-    // GET /users
-    this.addCustomRoute("GET", "/users", undefined, [
-      { id: 1, name: "Alice" },
-      { id: 2, name: "Bob" },
-    ]);
+  private setupDefaultRoutes() {
+    this.addCustomRoute({
+      method: "GET",
+      path: "/health",
+      response: {
+        message: "OK",
+      },
+      status: 200,
+    });
 
-    // POST /login
-    this.addCustomRoute(
-      "POST",
-      "/login",
-      { username: "admin", password: "password" },
-      {
-        success: true,
-        message: "Login successful",
-      }
-    );
+    this.addCustomRoute({
+      method: "GET",
+      path: "/custom-route-get",
+      response: {
+        message: "Item listed successfully",
+      },
+      status: 200,
+      validationType: "apiKey",
+      validationValue: "secret-key",
+    });
+
+    this.addCustomRoute({
+      method: "GET",
+      path: "/invalid-route",
+      response: {
+        error: "Route not found",
+      },
+      status: 404,
+    });
+
+    this.addCustomRoute({
+      method: "GET",
+      path: "/internal-server-error",
+      response: {
+        error: "Internal server error",
+      },
+      status: 500,
+    });
+
+    this.addCustomRoute({
+      method: "POST",
+      path: "/custom-route-create",
+      response: {
+        message: "Item created successfully",
+      },
+      status: 201,
+      validationType: "apiKey",
+      validationValue: "secret-key",
+    });
+
+    this.addCustomRoute({
+      method: "PUT",
+      path: "/custom-route-update",
+      response: {
+        message: "Item updated successfully",
+      },
+      status: 200,
+      validationType: "apiKey",
+      validationValue: "secret-key",
+    });
+
+    this.addCustomRoute({
+      method: "DELETE",
+      path: "/custom-route-delete",
+      response: {
+        message: "Item deleted successfully",
+      },
+      status: 200,
+      validationType: "apiKey",
+      validationValue: "secret-key",
+    });
+
+    this.addCustomRoute({
+      method: "GET",
+      path: "/secure-route-x-api-key",
+      response: {
+        message: "Custom route with API key works!",
+      },
+      status: 200,
+      validationType: "apiKey",
+      validationValue: "secret-key",
+    });
+
+    this.addCustomRoute({
+      method: "GET",
+      path: "/secure-route-authorization",
+      response: {
+        message: "Custom route with authorization works!",
+      },
+      status: 200,
+      validationType: "authorization",
+      validationValue: "secret-token",
+    });
+
+    // this.app.all("*", (req, res) => {
+    //   console.log(`Unhandled route: ${req.method} ${req.url}`);
+    //   res.status(404).json({ error: "Route not found" });
+    // });
   }
 
-  /**
-   * Create middleware based on the type and value
-   * @param middlewareType Type of middleware ('apiKey' or 'authorization')
-   * @param middlewareValue Value to validate against (e.g., API key or token)
-   */
-  private createMiddleware(
-    middlewareType: "apiKey" | "authorization",
-    middlewareValue: string
-  ): (req: Request, res: Response, next: NextFunction) => void {
-    return (req, res, next) => {
-      if (middlewareType === "apiKey") {
+  private generateMiddleware(
+    validationType?: string,
+    validationValue?: string
+  ) {
+    return (req: Request, res: Response, next: NextFunction) => {
+      if (validationType === "apiKey") {
         const apiKey = req.headers["x-api-key"];
-        if (apiKey === middlewareValue) {
-          next(); // Proceed to the main handler
+        if (apiKey === validationValue) {
+          next();
         } else {
           res.status(401).json({ error: "Unauthorized: Invalid API key" });
         }
-      } else if (middlewareType === "authorization") {
+      } else if (validationType === "authorization") {
         const authHeader = req.headers["authorization"];
-        if (authHeader && authHeader.startsWith("Bearer ")) {
+        if (authHeader?.startsWith("Bearer ")) {
           const token = authHeader.split(" ")[1];
-          if (token === middlewareValue) {
-            next(); // Proceed to the main handler
+          if (token === validationValue) {
+            next();
           } else {
             res.status(401).json({ error: "Unauthorized: Invalid token" });
           }
@@ -127,65 +165,27 @@ class MockAPI {
     };
   }
 
-  /**
-   * Add a custom route with simplified logic
-   * @param method HTTP method (e.g., GET, POST, PUT, DELETE, PATCH)
-   * @param path The route path
-   * @param requestData Optional request data to match (e.g., body or query params)
-   * @param responseData The response data to send back
-   * @param middlewareType Optional middleware type ('apiKey' or 'authorization')
-   * @param middlewareValue Optional middleware value (e.g., API key or token)
-   */
-  public addCustomRoute(
-    method: string,
-    path: string,
-    requestData: any,
-    responseData: any,
-    middlewareType?: "apiKey" | "authorization",
-    middlewareValue?: string
-  ): void {
-    const handler = (req: any, res: any) => {
-      try {
-        // Check if request data matches (if provided)
-        if (requestData) {
-          const reqData = req.method === "GET" ? req.query : req.body;
-          const isMatch = Object.keys(requestData).every((key) => {
-            return reqData[key] == requestData[key]; // Loose equality to allow string/number matching
-          });
-
-          if (!isMatch) {
-            return res.status(400).json({ error: "Invalid request data" });
-          }
-        }
-
-        // Send the response data
-        res.json(responseData);
-      } catch (error) {
-        res.status(500).json({ error: "Internal server error" });
-      }
+  public addCustomRoute(route: MockRoute): void {
+    this.routes.push(route);
+    const middleware =
+      route.validationType && route.validationValue
+        ? this.generateMiddleware(route.validationType, route.validationValue)
+        : undefined;
+    const requestHandler = (req: Request, res: Response) => {
+      const status = Number(route.status);
+      res.status(status).json(route.response);
     };
-
-    // Add the route to the Express app
-    if (middlewareType && middlewareValue) {
-      const middleware = this.createMiddleware(middlewareType, middlewareValue);
-      this.app[
-        method.toLowerCase() as "get" | "post" | "put" | "delete" | "patch"
-      ](path, middleware, handler);
+    const method = route.method.toLowerCase() as keyof Application;
+    if (middleware) {
+      this.app[method](route.path, middleware, requestHandler);
     } else {
-      this.app[
-        method.toLowerCase() as "get" | "post" | "put" | "delete" | "patch"
-      ](path, handler);
+      this.app[method](route.path, requestHandler);
     }
   }
 
-  /**
-   * Start the mock API server
-   */
-  public start(): void {
+  public start() {
     this.app.listen(this.port, () => {
-      console.log(
-        `${this.appName} server running at http://localhost:${this.port}`
-      );
+      console.log(`${this.appName} Mock API running on port ${this.port}`);
     });
   }
 }
