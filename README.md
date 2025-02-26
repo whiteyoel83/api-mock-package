@@ -28,45 +28,49 @@ npm install mock-custom-api
 ```typescript
 import MockAPI from "mock-custom-api";
 
-const mockAPI = new MockAPI("MyMockAPI", 4000, true);
+const mockAPI = new MockAPI("MyMockAPI", 4000, true, true);
 ```
 
 - The first parameter (`'MyMockAPI'`) is the application name.
 - The second parameter (`4000`) is the port number. if you put undefined, the server will start on a 3000 port.
 - The third parameter (`true`) enables CORS for all origins. You can also pass an array of allowed origins.
+- The fourth parameter (`true`) is to allow create some defaults endpoints.
+
+### Adding Default Routes
+
+This will generate the health endpoints automatically:
+
+- `GET /health` - Retrieve 200 OK when the server is up and running
+
+This will generate the following endpoints if the for parameter createDefaultRoutes is true:
+
+- `POST /route-post` - Retrieve 200 Item created successfully
+- `GET /route-get` - Retrieve 200 Item listed successfully
+- `GET /invalid-route` - Retrieve 404 Route not found
+- `GET /internal-server-error` - Retrieve 500 internal-server-error
+- `PUT /route-update` - Retrieve 200 Item updated successfully
+- `DELETE /route-delete` - Retrieve 200 Item deleted successfully
+- `GET /secure-route-x-api-key` - Retrieve 200 Route with API key works!
+- `GET /secure-route-authorization` - Retrieve 200 Route with authorization works!
 
 ### Adding Custom Routes
 
 You can define custom API routes with predefined responses.
 
 ```typescript
-mockAPI.addCustomRoute({
+mockAPI.addRoute({
   method: "GET",
   path: "/test",
   response: { message: "Test success" },
 });
 ```
 
-### Adding CRUD Routes Automatically
-
-```typescript
-mockAPI.addCRUDRoutes("users");
-```
-
-This will generate the following endpoints:
-
-- `POST /users` - Create a new user
-- `GET /users` - Retrieve all users
-- `GET /users/:id` - Retrieve a user by ID
-- `PUT /users/:id` - Update a user by ID
-- `DELETE /users/:id` - Delete a user by ID
-
-### Adding Authentication Middleware
+### Adding Custom Routes With Authentication Middleware
 
 You can secure routes with API key or token-based authentication.
 
 ```typescript
-mockAPI.addCustomRoute({
+mockAPI.addRoute({
   method: "GET",
   path: "/protected",
   response: { message: "Protected route" },
@@ -77,34 +81,28 @@ mockAPI.addCustomRoute({
 
 - `validationType: 'apiKey'` ensures that requests must include `x-api-key: my-secret-key` in the headers.
 
-### Handling Requests with Custom Middleware
-
 ```typescript
-mockAPI.addCustomRoute({
-  method: "POST",
-  path: "/validate",
-  response: { message: "Validated" },
-  middleware: (req, res, next) => {
-    if (!req.headers["x-custom-header"]) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    next();
-  },
+mockAPI.addRoute({
+  method: "GET",
+  path: "/secured",
+  response: { message: "Protected route" },
+  validationType: "authorization",
+  validationValue: "secret-token",
 });
 ```
 
-### Enabling Logging for Debugging
-
-By default, the API logs incoming requests and responses.
-
-```typescript
-mockAPI.enableLogging(true);
-```
+- `validationType: 'authorization'` ensures that requests must include `authorization: secret-token` in the headers.
 
 ### Starting the Mock API Server
 
 ```typescript
 mockAPI.start();
+```
+
+### Stopping the Mock API Server
+
+```typescript
+mockAPI.stop();
 ```
 
 This starts the API server on the specified port.
