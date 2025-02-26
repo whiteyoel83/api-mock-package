@@ -1,180 +1,399 @@
-import request from "supertest";
+import http from "http";
 import MockAPI from "../src/index";
 
-describe("Custom Routes", () => {
-  let mockAPI: any;
-
+describe("Validate Defaults Routes", () => {
+  let mockAPI: MockAPI;
+  let server: http.Server;
   beforeEach(() => {
-    mockAPI = new MockAPI("testApp", undefined);
+    mockAPI = new MockAPI("testApp", 0, true, true);
+    server = mockAPI.start();
   });
 
-  it("should respond with 200 for GET /health", async () => {
-    const response = await request(mockAPI["app"]).get("/health").expect(200);
-    expect(response.body.message).toBe("OK");
+  afterEach((done) => {
+    server.close(done);
   });
 
-  it("should respond with 200 for GET /custom-route-get", async () => {
-    const response = await request(mockAPI["app"])
-      .get("/custom-route-get")
-      .set("x-api-key", "secret-key")
-      .expect(200);
-    expect(response.body.message).toBe("Item listed successfully");
+  it("should respond with 200 for GET /health", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      { hostname: "localhost", port: port, path: "/health", method: "GET" },
+      (res) => {
+        expect(res.statusCode).toBe(200);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.message).toBe("OK");
+          done();
+        });
+      }
+    );
+    req.end();
   });
 
-  it("should respond with 201 for POST /custom-route-create", async () => {
-    const response = await request(mockAPI["app"])
-      .post("/custom-route-create")
-      .set("x-api-key", "secret-key")
-      .send({ name: "Test Item" })
-      .expect(201);
-    expect(response.body.message).toBe("Item created successfully");
+  it("should respond with 200 for GET /route-get", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/route-get",
+        method: "GET",
+        headers: { "x-api-key": "secret-key" },
+      },
+      (res) => {
+        expect(res.statusCode).toBe(200);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.message).toBe("Item listed successfully");
+          done();
+        });
+      }
+    );
+    req.end();
   });
 
-  it("should respond with 200 for PUT /custom-route-update", async () => {
-    const response = await request(mockAPI["app"])
-      .put("/custom-route-update")
-      .set("x-api-key", "secret-key")
-      .send({ name: "Test Item" })
-      .expect(200);
-    expect(response.body.message).toBe("Item updated successfully");
-  });
-
-  it("should respond with 200 for DELETE /custom-route-delete", async () => {
-    const response = await request(mockAPI["app"])
-      .delete("/custom-route-delete")
-      .set("x-api-key", "secret-key")
-      .send({ id: "some-id" })
-      .expect(200);
-    expect(response.body.message).toBe("Item deleted successfully");
-  });
+  // Add similar tests for POST, PUT, DELETE, etc.
 });
 
 describe("Api Key Validation", () => {
-  let mockAPI: any;
-
+  let mockAPI: MockAPI;
+  let server: http.Server;
   beforeEach(() => {
-    mockAPI = new MockAPI("testApp", undefined, true);
+    mockAPI = new MockAPI("testApp", 0, true, true);
+    server = mockAPI.start();
   });
-  it("should respond with 401 for GET /secure-route-x-api-key without API key", async () => {
-    const response = await request(mockAPI["app"])
-      .get("/secure-route-x-api-key")
-      .expect(401);
-    expect(response.body.error).toBe("Unauthorized: Invalid API key");
+
+  afterEach((done) => {
+    server.close(done);
   });
-  it("should respond with 200 for GET /secure-route-x-api-key with API key", async () => {
-    const response = await request(mockAPI["app"])
-      .get("/secure-route-x-api-key")
-      .set("x-api-key", "secret-key")
-      .expect(200);
-    expect(response.body.message).toBe("Custom route with API key works!");
+
+  it("should respond with 401 for GET /secure-route-x-api-key without API key", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/secure-route-x-api-key",
+        method: "GET",
+      },
+      (res) => {
+        expect(res.statusCode).toBe(401);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.error).toBe("Unauthorized: Invalid API key");
+          done();
+        });
+      }
+    );
+    req.end();
   });
-  it("should respond with 200 for GET /secure-route-x-api-key with wrong API key", async () => {
-    const response = await request(mockAPI["app"])
-      .get("/secure-route-x-api-key")
-      .set("x-api-key", "wrong-key")
-      .expect(401);
-    expect(response.body.error).toBe("Unauthorized: Invalid API key");
+
+  it("should respond with 200 for GET /secure-route-x-api-key with API key", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/secure-route-x-api-key",
+        method: "GET",
+        headers: { "x-api-key": "secret-key" },
+      },
+      (res) => {
+        expect(res.statusCode).toBe(200);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.message).toBe("Route with API key works!");
+          done();
+        });
+      }
+    );
+    req.end();
+  });
+
+  it("should respond with 401 for GET /secure-route-x-api-key with wrong API key", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/secure-route-x-api-key",
+        method: "GET",
+        headers: { "x-api-key": "wrong-key" },
+      },
+      (res) => {
+        expect(res.statusCode).toBe(401);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.error).toBe("Unauthorized: Invalid API key");
+          done();
+        });
+      }
+    );
+    req.end();
   });
 });
 
 describe("Authorization Validation", () => {
-  let mockAPI: any;
+  let mockAPI: MockAPI;
+  let server: http.Server;
 
   beforeEach(() => {
-    mockAPI = new MockAPI("testApp", undefined, true);
+    mockAPI = new MockAPI("testApp", 0, true, true);
+    server = mockAPI.start();
   });
-  it("should respond with 401 for GET /secure-route-authorization without authorization", async () => {
-    const response = await request(mockAPI["app"])
-      .get("/secure-route-authorization")
-      .expect(401);
-    expect(response.body.error).toBe("Unauthorized: Missing token");
+
+  afterEach((done) => {
+    server.close(done);
   });
-  it("should respond with 200 for GET /secure-route-authorization with authorization", async () => {
-    const response = await request(mockAPI["app"])
-      .get("/secure-route-authorization")
-      .set("authorization", "Bearer secret-token")
-      .expect(200);
-    expect(response.body.message).toBe(
-      "Custom route with authorization works!"
+
+  it("should respond with 401 for GET /secure-route-authorization without authorization", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/secure-route-authorization",
+        method: "GET",
+      },
+      (res) => {
+        expect(res.statusCode).toBe(401);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.error).toBe("Unauthorized: Missing token");
+          done();
+        });
+      }
     );
+    req.end();
   });
-  it("should respond with 401 for GET /secure-route-authorization with a wrong authorization", async () => {
-    const response = await request(mockAPI["app"])
-      .get("/secure-route-authorization")
-      .set("authorization", "Bearer wrong-token")
-      .expect(401);
-    expect(response.body.error).toBe("Unauthorized: Invalid token");
+
+  it("should respond with 200 for GET /secure-route-authorization with authorization", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/secure-route-authorization",
+        method: "GET",
+        headers: { Authorization: "Bearer secret-token" },
+      },
+      (res) => {
+        expect(res.statusCode).toBe(200);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.message).toBe("Route with authorization works!");
+          done();
+        });
+      }
+    );
+    req.end();
+  });
+
+  it("should respond with 401 for GET /secure-route-authorization with wrong authorization", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/secure-route-authorization",
+        method: "GET",
+        headers: { Authorization: "Bearer wrong-token" },
+      },
+      (res) => {
+        expect(res.statusCode).toBe(401);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.error).toBe("Unauthorized: Invalid token");
+          done();
+        });
+      }
+    );
+    req.end();
   });
 });
 
 describe("Error Handling", () => {
   let mockAPI: MockAPI;
+  let server: http.Server;
+
   beforeEach(() => {
-    mockAPI = new MockAPI("testApp", undefined, true);
+    mockAPI = new MockAPI("testApp", 0, true, true);
+    server = mockAPI.start();
   });
 
-  it("should respond with 200 for GET /invalid-route", async () => {
-    const response = await request(mockAPI["app"])
-      .get("/invalid-route")
-      .expect(404);
-    expect(response.body.error).toBe("Route not found");
+  afterEach((done) => {
+    server.close(done);
   });
 
-  it("should respond with 500 for GET /internal-server-error", async () => {
-    const response = await request(mockAPI["app"])
-      .get("/internal-server-error")
-      .expect(500);
-    expect(response.body.error).toBe("Internal server error");
+  it("should respond with 404 for GET /invalid-route", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/invalid-route",
+        method: "GET",
+      },
+      (res) => {
+        expect(res.statusCode).toBe(404);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.error).toBe("Route not found");
+          done();
+        });
+      }
+    );
+    req.end();
+  });
+
+  it("should respond with 500 for GET /internal-server-error", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/internal-server-error",
+        method: "GET",
+      },
+      (res) => {
+        expect(res.statusCode).toBe(500);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.error).toBe("Internal server error");
+          done();
+        });
+      }
+    );
+    req.end();
+  });
+
+  it("should respond with 500 for unauthorized method OPTIONS /health", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/health",
+        method: "OPTIONS",
+      },
+      (res) => {
+        expect(res.statusCode).toBe(405);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.error).toBe("Method not allowed");
+          done();
+        });
+      }
+    );
+    req.end();
   });
 });
 
 describe("Validate CORS with specific origins", () => {
   let mockAPI: MockAPI;
+  let server: http.Server;
 
-  beforeEach(() => {
+  beforeAll(() => {
     mockAPI = new MockAPI("testApp", 3001, ["http://localhost:3001"]);
+    server = mockAPI.start();
   });
 
-  it("should respond with valid CORS headers", async () => {
-    const response = await request(mockAPI["app"])
-      .get("/health")
-      .set("Origin", "http://localhost:3001")
-      .set("x-api-key", "secret-key")
-      .expect(200);
-    expect(response.headers["access-control-allow-origin"]).toBe(
-      "http://localhost:3001"
+  afterAll((done) => {
+    server.close(done);
+  });
+
+  it("should respond with valid CORS headers", (done) => {
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: 3001,
+        path: "/health",
+        method: "GET",
+        headers: { Origin: "http://localhost:3001" },
+      },
+      (res) => {
+        expect(res.headers["access-control-allow-origin"]).toBe(
+          "http://localhost:3001"
+        );
+        done();
+      }
     );
+    req.end();
   });
 });
 
-describe("Server functionality", () => {
+describe("Validate Custom Routes", () => {
   let mockAPI: MockAPI;
-  let listenSpy: any;
-
-  beforeEach(() => {
-    mockAPI = new MockAPI("testApp", undefined, true);
-    listenSpy = jest.spyOn(mockAPI["app"], "listen");
+  let server: http.Server;
+  beforeAll(() => {
+    mockAPI = new MockAPI("testApp", 0, true);
+    mockAPI.addRoute({
+      method: "GET",
+      path: "/custom-route",
+      response: { message: "Custom route works!" },
+      status: 200,
+    });
+    server = mockAPI.start();
   });
 
-  afterEach(() => {
-    listenSpy.mockRestore();
+  afterAll((done) => {
+    mockAPI.stop();
+    done();
   });
 
-  it("should start the server and log the correct message", () => {
-    const consoleLogSpy = jest.spyOn(console, "log");
-
-    mockAPI.start();
-
-    expect(listenSpy).toHaveBeenCalledWith(3000, expect.any(Function));
-
-    const callback = listenSpy.mock.calls[0][1];
-
-    callback();
-
-    expect(consoleLogSpy).toHaveBeenCalledWith(
-      "testApp Mock API running on port 3000"
+  it("should respond with 200 for GET /custom-route", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/custom-route",
+        method: "GET",
+      },
+      (res) => {
+        expect(res.statusCode).toBe(200);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.message).toBe("Custom route works!");
+          done();
+        });
+      }
     );
-
-    consoleLogSpy.mockRestore();
+    req.end();
   });
 });

@@ -1,6 +1,4 @@
-import express, { Application, Request, Response, NextFunction } from "express";
-import cors from "cors";
-import bodyParser from "body-parser";
+import http, { IncomingMessage, ServerResponse } from "http";
 
 interface MockRoute {
   method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
@@ -13,32 +11,25 @@ interface MockRoute {
 }
 
 class MockAPI {
-  readonly app: Application;
-  readonly port?: number;
-  readonly routes: MockRoute[] = [];
+  private port: number;
+  private readonly routes: MockRoute[] = [];
+  private server: http.Server | null = null;
 
   constructor(
     readonly appName: string,
     port: number = 3000,
-    allowCors: string[] | boolean = true
+    readonly allowCors: string[] | boolean = true,
+    createDefaultRoutes: boolean = false
   ) {
-    this.app = express();
     this.port = port;
-    this.app.use(express.json());
-    if (allowCors) {
-      this.app.use(
-        cors(typeof allowCors === "boolean" ? {} : { origin: allowCors })
-      );
+    this.setupInitialRoutes();
+    if (createDefaultRoutes) {
+      this.setupDefaultRoutes();
     }
-    this.app.use(bodyParser.json());
-    this.setupDefaultRoutes();
-    // this.app.all("*", (req: Request, res: Response) => {
-    //   res.status(404).json({ error: "Route not found" });
-    // });
   }
 
-  private setupDefaultRoutes() {
-    this.addCustomRoute({
+  private setupInitialRoutes() {
+    this.addRoute({
       method: "GET",
       path: "/health",
       response: {
@@ -46,10 +37,12 @@ class MockAPI {
       },
       status: 200,
     });
+  }
 
-    this.addCustomRoute({
+  private setupDefaultRoutes() {
+    this.addRoute({
       method: "GET",
-      path: "/custom-route-get",
+      path: "/route-get",
       response: {
         message: "Item listed successfully",
       },
@@ -58,7 +51,7 @@ class MockAPI {
       validationValue: "secret-key",
     });
 
-    this.addCustomRoute({
+    this.addRoute({
       method: "GET",
       path: "/invalid-route",
       response: {
@@ -67,7 +60,7 @@ class MockAPI {
       status: 404,
     });
 
-    this.addCustomRoute({
+    this.addRoute({
       method: "GET",
       path: "/internal-server-error",
       response: {
@@ -76,9 +69,9 @@ class MockAPI {
       status: 500,
     });
 
-    this.addCustomRoute({
+    this.addRoute({
       method: "POST",
-      path: "/custom-route-create",
+      path: "/route-create",
       response: {
         message: "Item created successfully",
       },
@@ -87,9 +80,9 @@ class MockAPI {
       validationValue: "secret-key",
     });
 
-    this.addCustomRoute({
+    this.addRoute({
       method: "PUT",
-      path: "/custom-route-update",
+      path: "/route-update",
       response: {
         message: "Item updated successfully",
       },
@@ -98,9 +91,9 @@ class MockAPI {
       validationValue: "secret-key",
     });
 
-    this.addCustomRoute({
+    this.addRoute({
       method: "DELETE",
-      path: "/custom-route-delete",
+      path: "/route-delete",
       response: {
         message: "Item deleted successfully",
       },
@@ -109,84 +102,160 @@ class MockAPI {
       validationValue: "secret-key",
     });
 
-    this.addCustomRoute({
+    this.addRoute({
       method: "GET",
       path: "/secure-route-x-api-key",
       response: {
-        message: "Custom route with API key works!",
+        message: "Route with API key works!",
       },
       status: 200,
       validationType: "apiKey",
       validationValue: "secret-key",
     });
 
-    this.addCustomRoute({
+    this.addRoute({
       method: "GET",
       path: "/secure-route-authorization",
       response: {
-        message: "Custom route with authorization works!",
+        message: "Route with authorization works!",
       },
       status: 200,
       validationType: "authorization",
       validationValue: "secret-token",
     });
-
-    // this.app.all("*", (req, res) => {
-    //   console.log(`Unhandled route: ${req.method} ${req.url}`);
-    //   res.status(404).json({ error: "Route not found" });
-    // });
   }
 
   private generateMiddleware(
     validationType?: string,
     validationValue?: string
   ) {
-    return (req: Request, res: Response, next: NextFunction) => {
+    return (req: IncomingMessage, res: ServerResponse, next: () => void) => {
+      const headers = req.headers;
+
       if (validationType === "apiKey") {
-        const apiKey = req.headers["x-api-key"];
+        const apiKey = headers["x-api-key"];
         if (apiKey === validationValue) {
           next();
         } else {
-          res.status(401).json({ error: "Unauthorized: Invalid API key" });
+          res.writeHead(401, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Unauthorized: Invalid API key" }));
         }
       } else if (validationType === "authorization") {
-        const authHeader = req.headers["authorization"];
+        const authHeader = headers["authorization"];
         if (authHeader?.startsWith("Bearer ")) {
           const token = authHeader.split(" ")[1];
           if (token === validationValue) {
             next();
           } else {
-            res.status(401).json({ error: "Unauthorized: Invalid token" });
+            res.writeHead(401, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Unauthorized: Invalid token" }));
           }
         } else {
-          res.status(401).json({ error: "Unauthorized: Missing token" });
+          res.writeHead(401, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Unauthorized: Missing token" }));
         }
+      } else {
+        next();
       }
     };
   }
 
-  public addCustomRoute(route: MockRoute): void {
+  public addRoute(route: MockRoute): void {
     this.routes.push(route);
-    const middleware =
-      route.validationType && route.validationValue
-        ? this.generateMiddleware(route.validationType, route.validationValue)
-        : undefined;
-    const requestHandler = (req: Request, res: Response) => {
-      const status = Number(route.status);
-      res.status(status).json(route.response);
-    };
-    const method = route.method.toLowerCase() as keyof Application;
-    if (middleware) {
-      this.app[method](route.path, middleware, requestHandler);
+  }
+
+  private handleRequest(req: IncomingMessage, res: ServerResponse) {
+    const { method, url } = req;
+    const route = this.routes.find(
+      (r) => r.method === method && r.path === url
+    );
+
+    if (route) {
+      const middleware =
+        route.validationType && route.validationValue
+          ? this.generateMiddleware(route.validationType, route.validationValue)
+          : undefined;
+
+      const requestHandler = () => {
+        res.writeHead(route.status ?? 200, {
+          "Content-Type": "application/json",
+        });
+        res.end(JSON.stringify(route.response));
+      };
+
+      if (middleware) {
+        middleware(req, res, requestHandler);
+      } else {
+        requestHandler();
+      }
     } else {
-      this.app[method](route.path, requestHandler);
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Route not found" }));
     }
   }
 
-  public start() {
-    this.app.listen(this.port, () => {
-      console.log(`${this.appName} Mock API running on port ${this.port}`);
+  public start(): http.Server {
+    this.server = http.createServer((req, res) => {
+      if (this.allowCors) {
+        const origin =
+          typeof this.allowCors === "boolean"
+            ? "*"
+            : Array.isArray(this.allowCors)
+            ? this.allowCors.join(", ")
+            : "*";
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+        res.setHeader(
+          "Access-Control-Allow-Headers",
+          "Content-Type, Authorization"
+        );
+        res.setHeader("Access-Control-Allow-Credentials", "true");
+      }
+
+      if (
+        req.method === "OPTIONS" ||
+        req.method === "HEAD" ||
+        req.method === "PATCH"
+      ) {
+        res.writeHead(405, {
+          "Content-Type": "application/json",
+        });
+        res.end(JSON.stringify({ error: "Method not allowed" }));
+        return;
+      }
+
+      this.handleRequest(req, res);
     });
+
+    this.server.listen(this.port, () => {
+      const address = this.server?.address();
+      const port =
+        typeof address === "object" && address ? address.port : this.port;
+      console.log(`${this.appName} Mock API running on port ${port}`);
+    });
+
+    // Handle "address already in use" errors
+    this.server.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE") {
+        console.warn(
+          `Port ${this.port} is already in use. Trying another port...`
+        );
+        this.port += 1;
+        this.start();
+      } else {
+        console.error("Server error:", err);
+      }
+    });
+
+    return this.server; // Return the server instance
+  }
+
+  public stop(): void {
+    if (this.server) {
+      this.server.close(() => {
+        console.log("Server stopped.");
+      });
+    }
   }
 }
 
