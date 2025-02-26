@@ -14,6 +14,7 @@ class MockAPI {
   private port: number;
   private readonly routes: MockRoute[] = [];
   private server: http.Server | null = null;
+  private origin: string;
 
   constructor(
     readonly appName: string,
@@ -22,6 +23,7 @@ class MockAPI {
     createDefaultRoutes: boolean = false
   ) {
     this.port = port;
+    this.origin = "";
     this.setupInitialRoutes();
     if (createDefaultRoutes) {
       this.setupDefaultRoutes();
@@ -197,13 +199,12 @@ class MockAPI {
   public start(): http.Server {
     this.server = http.createServer((req, res) => {
       if (this.allowCors) {
-        const origin =
-          typeof this.allowCors === "boolean"
-            ? "*"
-            : Array.isArray(this.allowCors)
-            ? this.allowCors.join(", ")
-            : "*";
-        res.setHeader("Access-Control-Allow-Origin", origin);
+        if (typeof this.allowCors === "boolean") {
+          this.origin = "*";
+        } else if (Array.isArray(this.allowCors)) {
+          this.origin = this.allowCors.join(", ");
+        }
+        res.setHeader("Access-Control-Allow-Origin", this.origin);
         res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
         res.setHeader(
           "Access-Control-Allow-Headers",
@@ -234,7 +235,6 @@ class MockAPI {
       console.log(`${this.appName} Mock API running on port ${port}`);
     });
 
-    // Handle "address already in use" errors
     this.server.on("error", (err: NodeJS.ErrnoException) => {
       if (err.code === "EADDRINUSE") {
         console.warn(
@@ -247,7 +247,7 @@ class MockAPI {
       }
     });
 
-    return this.server; // Return the server instance
+    return this.server;
   }
 
   public stop(): void {
