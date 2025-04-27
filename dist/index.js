@@ -11,6 +11,7 @@ class MockAPI {
         this.routes = [];
         this.server = null;
         this.port = port;
+        this.origin = "";
         this.setupInitialRoutes();
         if (createDefaultRoutes) {
             this.setupDefaultRoutes();
@@ -31,6 +32,10 @@ class MockAPI {
             method: "GET",
             path: "/route-get",
             response: {
+                data: [
+                    { id: 1, name: "Item 1" },
+                    { id: 2, name: "Item 2" },
+                ],
                 message: "Item listed successfully",
             },
             status: 200,
@@ -56,7 +61,15 @@ class MockAPI {
         this.addRoute({
             method: "POST",
             path: "/route-create",
+            body: {
+                id: "some-random-id",
+                name: "some-random-name",
+            },
             response: {
+                data: {
+                    id: "some-random-id",
+                    name: "some-random-name",
+                },
                 message: "Item created successfully",
             },
             status: 201,
@@ -66,7 +79,15 @@ class MockAPI {
         this.addRoute({
             method: "PUT",
             path: "/route-update",
+            body: {
+                id: "some-random-id",
+                name: "new-name",
+            },
             response: {
+                data: {
+                    id: "some-random-id",
+                    name: "new-name",
+                },
                 message: "Item updated successfully",
             },
             status: 200,
@@ -142,6 +163,137 @@ class MockAPI {
     addRoute(route) {
         this.routes.push(route);
     }
+    addCrudRoutes(options) {
+        const { name, interface: interfaceDefinition, version, securedType, } = options;
+        const versionedPath = `/${name}/v${version}`;
+        const generateRandomData = () => {
+            const randomItem = {};
+            for (const key in interfaceDefinition) {
+                const type = typeof interfaceDefinition[key];
+                switch (type) {
+                    case "string":
+                        randomItem[key] = `Random ${key}-${Math.random()
+                            .toString(36)
+                            .substring(2, 8)}`;
+                        break;
+                    case "number":
+                        randomItem[key] = Math.floor(Math.random() * 1000);
+                        break;
+                    case "boolean":
+                        randomItem[key] = (Math.random() > 0.5);
+                        break;
+                    default:
+                        randomItem[key] = interfaceDefinition[key];
+                }
+            }
+            return randomItem;
+        };
+        const routes = [
+            {
+                method: "GET",
+                path: `${versionedPath}`,
+                response: {
+                    message: `${name} list retrieved successfully`,
+                    body: Array(10).fill(null).map(generateRandomData),
+                },
+                status: 200,
+                validationType: securedType !== undefined && securedType !== "none"
+                    ? securedType
+                    : undefined,
+                validationValue: securedType !== undefined && securedType !== "none"
+                    ? "custom-key"
+                    : undefined,
+            },
+            {
+                method: "POST",
+                path: `${versionedPath}`,
+                response: {
+                    message: `${name} created successfully`,
+                    body: generateRandomData(),
+                },
+                status: 201,
+                validationType: securedType !== undefined && securedType !== "none"
+                    ? securedType
+                    : undefined,
+                validationValue: securedType !== undefined && securedType !== "none"
+                    ? "custom-key"
+                    : undefined,
+            },
+            {
+                method: "PUT",
+                path: `${versionedPath}`,
+                response: {
+                    message: `${name} updated successfully`,
+                    body: generateRandomData(),
+                },
+                status: 200,
+                validationType: securedType !== undefined && securedType !== "none"
+                    ? securedType
+                    : undefined,
+                validationValue: securedType !== undefined && securedType !== "none"
+                    ? "custom-key"
+                    : undefined,
+            },
+            {
+                method: "DELETE",
+                path: `${versionedPath}`,
+                response: {
+                    message: `${name} deleted successfully`,
+                },
+                status: 200,
+                validationType: securedType !== undefined && securedType !== "none"
+                    ? securedType
+                    : undefined,
+                validationValue: securedType !== undefined && securedType !== "none"
+                    ? "custom-key"
+                    : undefined,
+            },
+            {
+                method: "PATCH",
+                path: `${versionedPath}`,
+                response: {
+                    message: `${name} patched successfully`,
+                    body: generateRandomData(),
+                },
+                status: 200,
+                validationType: securedType !== undefined && securedType !== "none"
+                    ? securedType
+                    : undefined,
+                validationValue: securedType !== undefined && securedType !== "none"
+                    ? "custom-key"
+                    : undefined,
+            },
+            {
+                method: "OPTIONS",
+                path: `${versionedPath}`,
+                response: {
+                    message: `${name} options retrieved successfully`,
+                },
+                status: 200,
+                validationType: securedType !== undefined && securedType !== "none"
+                    ? securedType
+                    : undefined,
+                validationValue: securedType !== undefined && securedType !== "none"
+                    ? "custom-key"
+                    : undefined,
+            },
+            {
+                method: "HEAD",
+                path: `${versionedPath}`,
+                response: {
+                    message: `${name} head retrieved successfully`,
+                },
+                status: 200,
+                validationType: securedType !== undefined && securedType !== "none"
+                    ? securedType
+                    : undefined,
+                validationValue: securedType !== undefined && securedType !== "none"
+                    ? "custom-key"
+                    : undefined,
+            },
+        ];
+        routes.forEach((route) => this.addRoute(route));
+    }
     handleRequest(req, res) {
         const { method, url } = req;
         const route = this.routes.find((r) => r.method === method && r.path === url);
@@ -171,12 +323,13 @@ class MockAPI {
     start() {
         this.server = http_1.default.createServer((req, res) => {
             if (this.allowCors) {
-                const origin = typeof this.allowCors === "boolean"
-                    ? "*"
-                    : Array.isArray(this.allowCors)
-                        ? this.allowCors.join(", ")
-                        : "*";
-                res.setHeader("Access-Control-Allow-Origin", origin);
+                if (typeof this.allowCors === "boolean") {
+                    this.origin = "*";
+                }
+                else if (Array.isArray(this.allowCors)) {
+                    this.origin = this.allowCors.join(", ");
+                }
+                res.setHeader("Access-Control-Allow-Origin", this.origin);
                 res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
                 res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
                 res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -198,7 +351,6 @@ class MockAPI {
             const port = typeof address === "object" && address ? address.port : this.port;
             console.log(`${this.appName} Mock API running on port ${port}`);
         });
-        // Handle "address already in use" errors
         this.server.on("error", (err) => {
             if (err.code === "EADDRINUSE") {
                 console.warn(`Port ${this.port} is already in use. Trying another port...`);
@@ -209,7 +361,7 @@ class MockAPI {
                 console.error("Server error:", err);
             }
         });
-        return this.server; // Return the server instance
+        return this.server;
     }
     stop() {
         if (this.server) {

@@ -10,6 +10,13 @@ interface MockRoute {
   validationValue?: string;
 }
 
+interface CrudRouteOptions<T> {
+  name: string;
+  interface: T;
+  version: number;
+  securedType?: "apiKey" | "authorization" | "none";
+}
+
 class MockAPI {
   private port: number;
   private readonly routes: MockRoute[] = [];
@@ -46,6 +53,10 @@ class MockAPI {
       method: "GET",
       path: "/route-get",
       response: {
+        data: [
+          { id: 1, name: "Item 1" },
+          { id: 2, name: "Item 2" },
+        ],
         message: "Item listed successfully",
       },
       status: 200,
@@ -74,7 +85,15 @@ class MockAPI {
     this.addRoute({
       method: "POST",
       path: "/route-create",
+      body: {
+        id: "some-random-id",
+        name: "some-random-name",
+      },
       response: {
+        data: {
+          id: "some-random-id",
+          name: "some-random-name",
+        },
         message: "Item created successfully",
       },
       status: 201,
@@ -85,7 +104,15 @@ class MockAPI {
     this.addRoute({
       method: "PUT",
       path: "/route-update",
+      body: {
+        id: "some-random-id",
+        name: "new-name",
+      },
       response: {
+        data: {
+          id: "some-random-id",
+          name: "new-name",
+        },
         message: "Item updated successfully",
       },
       status: 200,
@@ -164,6 +191,171 @@ class MockAPI {
 
   public addRoute(route: MockRoute): void {
     this.routes.push(route);
+  }
+
+  public addCrudRoutes<T extends Record<string, any>>(
+    options: CrudRouteOptions<T>
+  ): void {
+    const {
+      name,
+      interface: interfaceDefinition,
+      version,
+      securedType,
+    } = options;
+    const versionedPath = `/${name}/v${version}`;
+
+    const generateRandomData = (): T => {
+      const randomItem: Partial<T> = {};
+
+      for (const key in interfaceDefinition) {
+        const type = typeof interfaceDefinition[key];
+
+        switch (type) {
+          case "string":
+            randomItem[key] = `Random ${key}-${Math.random()
+              .toString(36)
+              .substring(2, 8)}` as T[Extract<keyof T, string>];
+            break;
+          case "number":
+            randomItem[key] = Math.floor(Math.random() * 1000) as T[Extract<
+              keyof T,
+              string
+            >];
+            break;
+          case "boolean":
+            randomItem[key] = (Math.random() > 0.5) as T[Extract<
+              keyof T,
+              string
+            >];
+            break;
+          default:
+            randomItem[key] = interfaceDefinition[key];
+        }
+      }
+
+      return randomItem as T;
+    };
+
+    const routes = [
+      {
+        method: "GET",
+        path: `${versionedPath}`,
+        response: {
+          message: `${name} list retrieved successfully`,
+          body: Array(10).fill(null).map(generateRandomData),
+        },
+        status: 200,
+        validationType:
+          securedType !== undefined && securedType !== "none"
+            ? securedType
+            : undefined,
+        validationValue:
+          securedType !== undefined && securedType !== "none"
+            ? "custom-key"
+            : undefined,
+      },
+      {
+        method: "POST",
+        path: `${versionedPath}`,
+        response: {
+          message: `${name} created successfully`,
+          body: generateRandomData(),
+        },
+        status: 201,
+        validationType:
+          securedType !== undefined && securedType !== "none"
+            ? securedType
+            : undefined,
+        validationValue:
+          securedType !== undefined && securedType !== "none"
+            ? "custom-key"
+            : undefined,
+      },
+      {
+        method: "PUT",
+        path: `${versionedPath}`,
+        response: {
+          message: `${name} updated successfully`,
+          body: generateRandomData(),
+        },
+        status: 200,
+        validationType:
+          securedType !== undefined && securedType !== "none"
+            ? securedType
+            : undefined,
+        validationValue:
+          securedType !== undefined && securedType !== "none"
+            ? "custom-key"
+            : undefined,
+      },
+      {
+        method: "DELETE",
+        path: `${versionedPath}`,
+        response: {
+          message: `${name} deleted successfully`,
+        },
+        status: 200,
+        validationType:
+          securedType !== undefined && securedType !== "none"
+            ? securedType
+            : undefined,
+        validationValue:
+          securedType !== undefined && securedType !== "none"
+            ? "custom-key"
+            : undefined,
+      },
+      {
+        method: "PATCH",
+        path: `${versionedPath}`,
+        response: {
+          message: `${name} patched successfully`,
+          body: generateRandomData(),
+        },
+        status: 200,
+        validationType:
+          securedType !== undefined && securedType !== "none"
+            ? securedType
+            : undefined,
+        validationValue:
+          securedType !== undefined && securedType !== "none"
+            ? "custom-key"
+            : undefined,
+      },
+      {
+        method: "OPTIONS",
+        path: `${versionedPath}`,
+        response: {
+          message: `${name} options retrieved successfully`,
+        },
+        status: 200,
+        validationType:
+          securedType !== undefined && securedType !== "none"
+            ? securedType
+            : undefined,
+        validationValue:
+          securedType !== undefined && securedType !== "none"
+            ? "custom-key"
+            : undefined,
+      },
+      {
+        method: "HEAD",
+        path: `${versionedPath}`,
+        response: {
+          message: `${name} head retrieved successfully`,
+        },
+        status: 200,
+        validationType:
+          securedType !== undefined && securedType !== "none"
+            ? securedType
+            : undefined,
+        validationValue:
+          securedType !== undefined && securedType !== "none"
+            ? "custom-key"
+            : undefined,
+      },
+    ];
+
+    routes.forEach((route: any) => this.addRoute(route));
   }
 
   private handleRequest(req: IncomingMessage, res: ServerResponse) {

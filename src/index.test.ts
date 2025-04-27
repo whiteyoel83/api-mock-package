@@ -56,8 +56,6 @@ describe("Validate Defaults Routes", () => {
     );
     req.end();
   });
-
-  // Add similar tests for POST, PUT, DELETE, etc.
 });
 
 describe("Api Key Validation", () => {
@@ -390,6 +388,137 @@ describe("Validate Custom Routes", () => {
         res.on("end", () => {
           const body = JSON.parse(data);
           expect(body.message).toBe("Custom route works!");
+          done();
+        });
+      }
+    );
+    req.end();
+  });
+});
+
+describe("Validate Add Crud Routes with random data", () => {
+  let mockAPI: MockAPI;
+  let server: http.Server;
+  interface IUser {
+    id: string;
+    name: string;
+    age: number;
+    email: string;
+    isActive: boolean;
+  }
+  beforeAll(() => {
+    mockAPI = new MockAPI("testApp", 0, true);
+    mockAPI.addCrudRoutes<IUser>({
+      name: "users",
+      interface: {
+        id: "id",
+        name: "",
+        age: 0,
+        email: "",
+        isActive: false,
+      },
+      version: 1,
+    });
+    server = mockAPI.start();
+  });
+
+  afterAll((done) => {
+    mockAPI.stop();
+    done();
+  });
+
+  it("should create a user with POST", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/users/v1",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      },
+      (res) => {
+        expect(res.statusCode).toBe(201);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body).not.toBeNull();
+          done();
+        });
+      }
+    );
+    req.end();
+  });
+
+  it("should read a user with GET", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/users/v1",
+        method: "GET",
+      },
+      (res) => {
+        expect(res.statusCode).toBe(200);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body).not.toBeNull();
+          done();
+        });
+      }
+    );
+    req.end();
+  });
+
+  it("should update a user with PUT ", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/users/v1",
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+      },
+      (res) => {
+        expect(res.statusCode).toBe(200);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body).not.toBeNull();
+          done();
+        });
+      }
+    );
+    req.end();
+  });
+
+  it("should delete a user with DELETE ", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/users/v1",
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      },
+      (res) => {
+        expect(res.statusCode).toBe(200);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body).not.toBeNull();
           done();
         });
       }

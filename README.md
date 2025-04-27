@@ -93,6 +93,106 @@ mockAPI.addRoute({
 
 - `validationType: 'authorization'` ensures that requests must include `authorization: secret-token` in the headers.
 
+### Adding CRUD Routes
+
+The `addCrudRoutes` method allows you to quickly set up CRUD (Create, Read, Update, Delete) endpoints for a specific resource. This is useful for mocking APIs with dynamic resources.
+
+#### Syntax
+
+```typescript
+mockAPI.addCrudRoutes<T>({
+  name: string,
+  interface: T,
+  randomData: boolean,
+});
+```
+
+- `name`: The name of the resource (e.g., "users"). This will be used as the base path for the endpoints.
+- `interface`: The TypeScript interface defining the structure of the resource.
+- `randomData`: A boolean indicating whether to generate random data for the resource.
+
+#### Example
+
+```typescript
+interface IUser {
+  id: string;
+  name: string;
+  age: number;
+  email: string;
+  isActive: boolean;
+}
+
+mockAPI.addCrudRoutes<IUser>({
+  name: "users",
+  interface: {
+    id: "",
+    name: "",
+    age: 0,
+    email: "",
+    isActive: false,
+  },
+  randomData: true,
+});
+```
+
+This will generate the following endpoints:
+
+- `GET /users` - Retrieve a list of users.
+- `POST /users` - Create a new user.
+- `PUT /users` - Update an existing user.
+- `DELETE /users` - Delete a user.
+
+#### Example API Calls Using Fetch
+
+```javascript
+// Fetch all users
+fetch("http://localhost:4000/users")
+  .then((response) => response.json())
+  .then((data) => console.log(data));
+
+// Create a new user
+fetch("http://localhost:4000/users", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    id: "1",
+    name: "John Doe",
+    age: 30,
+    email: "john.doe@example.com",
+    isActive: true,
+  }),
+})
+  .then((response) => response.json())
+  .then((data) => console.log(data));
+
+// Update a user
+fetch("http://localhost:4000/users", {
+  method: "PUT",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    id: "1",
+    name: "Jane Doe",
+    age: 25,
+    email: "jane.doe@example.com",
+    isActive: false,
+  }),
+})
+  .then((response) => response.json())
+  .then((data) => console.log(data));
+
+// Delete a user
+fetch("http://localhost:4000/users", {
+  method: "DELETE",
+})
+  .then((response) => response.json())
+  .then((data) => console.log(data));
+```
+
+#### Notes
+
+- The `randomData` option generates random data for the resource if set to `true`. This is useful for testing purposes.
+- The `interface` parameter ensures that the resource structure adheres to the specified TypeScript interface.
+
 ### Starting the Mock API Server
 
 ```typescript
