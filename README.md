@@ -36,22 +36,49 @@ const mockAPI = new MockAPI("MyMockAPI", 4000, true, true);
 - The third parameter (`true`) enables CORS for all origins. You can also pass an array of allowed origins.
 - The fourth parameter (`true`) is to allow create some defaults endpoints.
 
-### Adding Default Routes
+### Default Routes
 
-This will generate the health endpoints automatically:
+The Mock API includes several default routes for common use cases. These routes are automatically added when the `createDefaultRoutes` parameter is set to `true` during initialization.
 
-- `GET /health` - Retrieve 200 OK when the server is up and running
+#### Default Routes List
 
-This will generate the following endpoints if the for parameter createDefaultRoutes is true:
+- `GET /health` - Returns a 200 response with a message indicating the server is running.
+- `GET /route-get` - Returns a 200 response with a list of items.
+- `POST /route-create` - Returns a 201 response indicating an item was created.
+- `PUT /route-update` - Returns a 200 response indicating an item was updated.
+- `DELETE /route-delete` - Returns a 200 response indicating an item was deleted.
+- `GET /secure-route-x-api-key` - Returns a 200 response if a valid API key is provided.
+- `GET /secure-route-authorization` - Returns a 200 response if a valid authorization token is provided.
+- `GET /token` - Returns a 200 response with a randomly generated token.
+- `POST /login-success` - Returns a 200 response with a token for successful login.
+- `POST /login-error` - Returns a 401 response with an error message for failed login.
 
-- `POST /route-post` - Retrieve 200 Item created successfully
-- `GET /route-get` - Retrieve 200 Item listed successfully
-- `GET /invalid-route` - Retrieve 404 Route not found
-- `GET /internal-server-error` - Retrieve 500 internal-server-error
-- `PUT /route-update` - Retrieve 200 Item updated successfully
-- `DELETE /route-delete` - Retrieve 200 Item deleted successfully
-- `GET /secure-route-x-api-key` - Retrieve 200 Route with API key works!
-- `GET /secure-route-authorization` - Retrieve 200 Route with authorization works!
+#### Example Usage
+
+```javascript
+// Fetch a random token
+fetch("http://localhost:3000/token")
+  .then((response) => response.json())
+  .then((data) => console.log(data));
+
+// Simulate a successful login
+fetch("http://localhost:3000/login-success", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ username: "user", password: "pass" }),
+})
+  .then((response) => response.json())
+  .then((data) => console.log(data));
+
+// Simulate a failed login
+fetch("http://localhost:3000/login-error", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ username: "user", password: "wrong-pass" }),
+})
+  .then((response) => response.json())
+  .then((data) => console.log(data));
+```
 
 ### Adding Custom Routes
 

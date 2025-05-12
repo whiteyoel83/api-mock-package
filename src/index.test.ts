@@ -56,6 +56,84 @@ describe("Validate Defaults Routes", () => {
     );
     req.end();
   });
+
+  it("should respond with a random token for GET /token", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/token",
+        method: "GET",
+      },
+      (res) => {
+        expect(res.statusCode).toBe(200);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.token).toMatch(/^mock-token-[a-z0-9]+$/);
+          expect(body.message).toBe("Token generated successfully");
+          done();
+        });
+      }
+    );
+    req.end();
+  });
+
+  it("should respond with a token for POST /login-success", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/login-success",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      },
+      (res) => {
+        expect(res.statusCode).toBe(200);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.token).not.toBeNull();
+          expect(body.message).toBe("Login successful");
+          done();
+        });
+      }
+    );
+    req.write(JSON.stringify({ username: "user", password: "pass" }));
+    req.end();
+  });
+
+  it("should respond with an error for POST /login-error", (done) => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const req = http.request(
+      {
+        hostname: "localhost",
+        port: port,
+        path: "/login-error",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      },
+      (res) => {
+        expect(res.statusCode).toBe(401);
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          const body = JSON.parse(data);
+          expect(body.error).toBe("Invalid username or password");
+          done();
+        });
+      }
+    );
+    req.write(JSON.stringify({ username: "user", password: "wrong-pass" }));
+    req.end();
+  });
 });
 
 describe("Api Key Validation", () => {

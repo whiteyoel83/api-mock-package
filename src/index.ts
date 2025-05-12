@@ -152,6 +152,36 @@ class MockAPI {
       validationType: "authorization",
       validationValue: "secret-token",
     });
+
+    // New routes
+    this.addRoute({
+      method: "POST",
+      path: "/login-success",
+      response: {
+        token: `mock-token-${Math.random().toString(36).substring(2, 15)}`,
+        message: "Login successful",
+      },
+      status: 200,
+    });
+
+    this.addRoute({
+      method: "POST",
+      path: "/login-error",
+      response: {
+        error: "Invalid username or password",
+      },
+      status: 401,
+    });
+
+    this.addRoute({
+      method: "GET",
+      path: "/token",
+      response: {
+        token: `mock-token-${Math.random().toString(36).substring(2, 15)}`,
+        message: "Token generated successfully",
+      },
+      status: 200,
+    });
   }
 
   private generateMiddleware(
